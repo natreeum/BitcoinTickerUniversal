@@ -66,6 +66,13 @@ struct SettingsView: View {
 
 private struct PriceSourceForm: View {
     @Binding var source: PriceSource
+    @State private var isResponsePickerPresented = false
+    @State private var isFetchingResponse = false
+    @State private var responseFetchFailed = false
+    @State private var responseOptions: [ResponseValueOption] = []
+    @State private var selectedResponseKeyPath: String?
+
+    private let priceClient = PriceClient()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -73,10 +80,23 @@ private struct PriceSourceForm: View {
                 TextField("Label", text: $source.label)
             }
             field("API") {
-                TextField("https://…", text: $source.apiURL)
+                HStack(spacing: 8) {
+                    TextField("https://…", text: $source.apiURL)
+                    Button("Fetch") {
+                        fetchResponseOptions()
+                    }
+                }
             }
             field("Response key path") {
-                TextField("data.amount", text: $source.responseKeyPath)
+                Text(source.responseKeyPath.isEmpty ? "Not selected" : source.responseKeyPath)
+                    .foregroundColor(source.responseKeyPath.isEmpty ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.secondary.opacity(0.35))
+                    )
             }
             field("Currency symbol") {
                 Picker("Currency symbol", selection: $source.currencySymbol) {
@@ -99,13 +119,23 @@ private struct PriceSourceForm: View {
                     Spacer()
                 }
             }
-            Text("Nested JSON values use dot notation, for example data.amount. Array indexes are supported, for example data.0.price.")
+            Text("Use Fetch to inspect the API response and choose a numeric response key path.")
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer()
         }
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .padding(24)
+        .sheet(isPresented: $isResponsePickerPresented) {
+            ResponseKeyPathPickerSheet(
+                isFetching: isFetchingResponse,
+                fetchFailed: responseFetchFailed,
+                options: responseOptions,
+                selectedKeyPath: $selectedResponseKeyPath,
+                onSelect: selectResponseKeyPath,
+                onClose: { isResponsePickerPresented = false }
+            )
+        }
     }
 
     private func field<Content: View>(
@@ -116,6 +146,159 @@ private struct PriceSourceForm: View {
             Text(title).font(.headline)
             content()
         }
+    }
+
+    private func fetchResponseOptions() {
+        isResponsePickerPresented = true
+        isFetchingResponse = true
+        responseFetchFailed = false
+        responseOptions = []
+        selectedResponseKeyPath = nil
+
+        let apiURL = source.apiURL
+        Task {
+            do {
+                let options = try await priceClient.fetchResponseValueOptions(from: apiURL)
+                await MainActor.run {
+                    responseOptions = options
+                    selectedResponseKeyPath = options.first(where: { $0.keyPath == source.responseKeyPath })?.keyPath
+                    isFetchingResponse = false
+                }
+            } catch {
+                await MainActor.run {
+                    responseFetchFailed = true
+                    isFetchingResponse = false
+                }
+            }
+        }
+    }
+
+    private func selectResponseKeyPath() {
+        guard let selectedResponseKeyPath,
+              let option = responseOptions.first(where: { $0.keyPath == selectedResponseKeyPath }) else {
+            return
+        }
+
+        guard option.isNumeric else { return }
+
+        source.responseKeyPath = selectedResponseKeyPath
+        isResponsePickerPresented = false
+    }
+}
+
+private struct ResponseKeyPathPickerSheet: View {
+    let isFetching: Bool
+    let fetchFailed: Bool
+    let options: [ResponseValueOption]
+    @Binding var selectedKeyPath: String?
+    let onSelect: () -> Void
+    let onClose: () -> Void
+
+    private var selectedOption: ResponseValueOption? {
+        guard let selectedKeyPath else { return nil }
+        return options.first(where: { $0.keyPath == selectedKeyPath })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Select Response Key Path")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            if isFetching {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Fetching response…")
+                        .foregroundColor(.secondary)
+                }
+                .frame(width: 520, height: 220)
+            } else if fetchFailed {
+                Text("Failed to fetch data. Check the url agian.")
+                    .foregroundColor(.secondary)
+                    .frame(width: 520)
+                    .frame(minHeight: 120, alignment: .center)
+                HStack {
+                    Spacer()
+                    Button("Close", action: onClose)
+                        .keyboardShortcut(.cancelAction)
+                }
+            } else {
+                if options.isEmpty {
+                    Text("No selectable response values found.")
+                        .foregroundColor(.secondary)
+                        .frame(width: 520)
+                        .frame(minHeight: 120, alignment: .center)
+                } else {
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(options) { option in
+                                ResponseValueOptionRow(
+                                    option: option,
+                                    isSelected: selectedKeyPath == option.keyPath,
+                                    action: {
+                                        if option.isNumeric {
+                                            selectedKeyPath = option.keyPath
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    .frame(width: 560, height: 320)
+                    .background(Color(NSColor.textBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.secondary.opacity(0.25))
+                    )
+                }
+
+                HStack {
+                    Spacer()
+                    Button("Close", action: onClose)
+                        .keyboardShortcut(.cancelAction)
+                    Button("Select", action: onSelect)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(selectedOption?.isNumeric != true)
+                }
+            }
+        }
+        .padding(20)
+    }
+}
+
+private struct ResponseValueOptionRow: View {
+    let option: ResponseValueOption
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var depth: Int {
+        guard option.keyPath != "$" else { return 0 }
+        return max(option.keyPath.split(separator: ".").count - 1, 0)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(option.isNumeric ? .accentColor : Color.secondary.opacity(0.45))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(option.keyPath)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(option.isNumeric ? .primary : Color.secondary.opacity(0.6))
+                    Text(option.displayValue)
+                        .font(.caption)
+                        .foregroundColor(option.isNumeric ? .orange : Color.secondary.opacity(0.6))
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .padding(.leading, CGFloat(depth) * 16)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!option.isNumeric)
     }
 }
 

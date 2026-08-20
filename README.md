@@ -31,6 +31,16 @@ Bitcoin Ticker Universal is a small native replacement built for both Apple Sili
 
 The selected public API price is displayed as a rounded integer. Request, HTTP, or JSON parsing errors display `--` until the next successful refresh.
 
+## Install from DMG
+
+1. Download and open [`Bitcoin-Ticker-Universal.dmg`](dist/Bitcoin-Ticker-Universal.dmg).
+2. Drag **Bitcoin Ticker Universal.app** onto the included **Applications** shortcut.
+3. Launch the app from `/Applications`.
+4. Enable **Launch at Login** after the app is in its final location.
+
+> [!NOTE]
+> The local DMG uses an ad-hoc signature. On another Mac, Gatekeeper may require Finder → right-click the app → **Open**. Warning-free public distribution requires Developer ID signing and Apple notarization.
+
 ## Features
 
 | | Feature | Details |
@@ -92,16 +102,6 @@ result.list.0.lastPrice
 ```
 
 New sources default to 60000 ms. The minimum effective polling interval is 250 ms.
-
-## Install from DMG
-
-1. Download and open [`Bitcoin-Ticker-Universal.dmg`](dist/Bitcoin-Ticker-Universal.dmg).
-2. Drag **Bitcoin Ticker Universal.app** onto the included **Applications** shortcut.
-3. Launch the app from `/Applications`.
-4. Enable **Launch at Login** after the app is in its final location.
-
-> [!NOTE]
-> The local DMG uses an ad-hoc signature. On another Mac, Gatekeeper may require Finder → right-click the app → **Open**. Warning-free public distribution requires Developer ID signing and Apple notarization.
 
 ## Launch at Login
 

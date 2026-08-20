@@ -16,6 +16,13 @@ enum PriceClientError: LocalizedError {
     }
 }
 
+struct ResponseValueOption: Identifiable, Equatable {
+    var id: String { keyPath }
+    let keyPath: String
+    let displayValue: String
+    let isNumeric: Bool
+}
+
 struct PriceClient: Sendable {
     func fetchPrice(from source: PriceSource) async throws -> Decimal {
         guard let url = URL(string: source.apiURL),
@@ -40,14 +47,32 @@ struct PriceClient: Sendable {
             throw PriceClientError.missingValue(source.responseKeyPath)
         }
 
-        if let number = value as? NSNumber {
-            return number.decimalValue
-        }
-        if let string = value as? String,
-           let decimal = Decimal(string: string, locale: Locale(identifier: "en_US_POSIX")) {
+        if let decimal = decimalValue(from: value) {
             return decimal
         }
         throw PriceClientError.unsupportedValue
+    }
+
+    func fetchResponseValueOptions(from apiURL: String) async throws -> [ResponseValueOption] {
+        guard let url = URL(string: apiURL),
+              let scheme = url.scheme,
+              ["http", "https"].contains(scheme.lowercased()) else {
+            throw PriceClientError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.setValue("BitcoinTickerUniversal/1.0", forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await requestData(request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode) else {
+            throw PriceClientError.invalidResponse
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data)
+        return flattenedOptions(from: json)
     }
 
     private func requestData(_ request: URLRequest) async throws -> (Data, URLResponse) {
@@ -81,5 +106,62 @@ struct PriceClient: Sendable {
             }
             return nil
         }
+    }
+
+    private func flattenedOptions(from json: Any) -> [ResponseValueOption] {
+        var options: [ResponseValueOption] = []
+
+        func walk(_ value: Any, path: String) {
+            if let dictionary = value as? [String: Any] {
+                for key in dictionary.keys.sorted() {
+                    let childPath = path.isEmpty ? key : "\(path).\(key)"
+                    walk(dictionary[key] as Any, path: childPath)
+                }
+                return
+            }
+
+            if let array = value as? [Any] {
+                for (index, child) in array.enumerated() {
+                    let childPath = path.isEmpty ? "\(index)" : "\(path).\(index)"
+                    walk(child, path: childPath)
+                }
+                return
+            }
+
+            let keyPath = path.isEmpty ? "$" : path
+            options.append(
+                ResponseValueOption(
+                    keyPath: keyPath,
+                    displayValue: displayString(from: value),
+                    isNumeric: decimalValue(from: value) != nil
+                )
+            )
+        }
+
+        walk(json, path: "")
+        return options
+    }
+
+    private func decimalValue(from value: Any) -> Decimal? {
+        if let number = value as? NSNumber {
+            return number.decimalValue
+        }
+        if let string = value as? String {
+            return Decimal(string: string, locale: Locale(identifier: "en_US_POSIX"))
+        }
+        return nil
+    }
+
+    private func displayString(from value: Any) -> String {
+        if value is NSNull {
+            return "null"
+        }
+        if let string = value as? String {
+            return "\"\(string)\""
+        }
+        if let number = value as? NSNumber {
+            return number.stringValue
+        }
+        return String(describing: value)
     }
 }
