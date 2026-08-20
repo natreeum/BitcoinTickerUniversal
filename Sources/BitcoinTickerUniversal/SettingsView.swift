@@ -66,30 +66,38 @@ struct SettingsView: View {
 
 private struct PriceSourceForm: View {
     @Binding var source: PriceSource
+    @State private var draft: PriceSource
     @State private var isResponsePickerPresented = false
     @State private var isFetchingResponse = false
     @State private var responseFetchFailed = false
     @State private var responseOptions: [ResponseValueOption] = []
     @State private var selectedResponseKeyPath: String?
+    @State private var responseFetchTask: Task<Void, Never>?
+    @State private var responseFetchID = UUID()
 
     private let priceClient = PriceClient()
+
+    init(source: Binding<PriceSource>) {
+        _source = source
+        _draft = State(initialValue: source.wrappedValue)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             field("Label") {
-                TextField("Label", text: $source.label)
+                TextField("Label", text: $draft.label)
             }
             field("API") {
                 HStack(spacing: 8) {
-                    TextField("https://…", text: $source.apiURL)
+                    TextField("https://…", text: $draft.apiURL)
                     Button("Fetch") {
                         fetchResponseOptions()
                     }
                 }
             }
             field("Response key path") {
-                Text(source.responseKeyPath.isEmpty ? "Not selected" : source.responseKeyPath)
-                    .foregroundColor(source.responseKeyPath.isEmpty ? .secondary : .primary)
+                Text(draft.responseKeyPath.isEmpty ? "Not selected" : draft.responseKeyPath)
+                    .foregroundColor(draft.responseKeyPath.isEmpty ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
@@ -99,7 +107,7 @@ private struct PriceSourceForm: View {
                     )
             }
             field("Currency symbol") {
-                Picker("Currency symbol", selection: $source.currencySymbol) {
+                Picker("Currency symbol", selection: $draft.currencySymbol) {
                     ForEach(CurrencySymbol.allCases) { currencySymbol in
                         Text(currencySymbol.label).tag(currencySymbol)
                     }
@@ -111,7 +119,7 @@ private struct PriceSourceForm: View {
                 HStack {
                     TextField(
                         "Milliseconds",
-                        value: $source.refreshMilliseconds,
+                        value: $draft.refreshMilliseconds,
                         formatter: NumberFormatter.integer
                     )
                     .frame(width: 140)
@@ -123,9 +131,34 @@ private struct PriceSourceForm: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             Spacer()
+            HStack {
+                Button {
+                    restoreChanges()
+                } label: {
+                    Label("Restore", systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(RestoreButtonStyle(isActive: draft != source))
+                .disabled(draft == source)
+                Spacer()
+                Button("Apply") {
+                    applyChanges()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(draft == source)
+            }
         }
         .textFieldStyle(RoundedBorderTextFieldStyle())
         .padding(24)
+        .onChange(of: source.id) { _ in
+            draft = source
+            resetResponsePickerState()
+        }
+        .onChange(of: source) { newSource in
+            if draft.id != newSource.id {
+                draft = newSource
+                resetResponsePickerState()
+            }
+        }
         .sheet(isPresented: $isResponsePickerPresented) {
             ResponseKeyPathPickerSheet(
                 isFetching: isFetchingResponse,
@@ -133,7 +166,8 @@ private struct PriceSourceForm: View {
                 options: responseOptions,
                 selectedKeyPath: $selectedResponseKeyPath,
                 onSelect: selectResponseKeyPath,
-                onClose: { isResponsePickerPresented = false }
+                onCancel: cancelResponseFetch,
+                onClose: closeResponsePicker
             )
         }
     }
@@ -149,25 +183,32 @@ private struct PriceSourceForm: View {
     }
 
     private func fetchResponseOptions() {
+        responseFetchTask?.cancel()
+        let fetchID = UUID()
+        responseFetchID = fetchID
         isResponsePickerPresented = true
         isFetchingResponse = true
         responseFetchFailed = false
         responseOptions = []
         selectedResponseKeyPath = nil
 
-        let apiURL = source.apiURL
-        Task {
+        let apiURL = draft.apiURL
+        responseFetchTask = Task {
             do {
                 let options = try await priceClient.fetchResponseValueOptions(from: apiURL)
                 await MainActor.run {
+                    guard responseFetchID == fetchID, !Task.isCancelled else { return }
                     responseOptions = options
-                    selectedResponseKeyPath = options.first(where: { $0.keyPath == source.responseKeyPath })?.keyPath
+                    selectedResponseKeyPath = options.first(where: { $0.keyPath == draft.responseKeyPath })?.keyPath
                     isFetchingResponse = false
+                    responseFetchTask = nil
                 }
             } catch {
                 await MainActor.run {
+                    guard responseFetchID == fetchID, !Task.isCancelled else { return }
                     responseFetchFailed = true
                     isFetchingResponse = false
+                    responseFetchTask = nil
                 }
             }
         }
@@ -181,8 +222,57 @@ private struct PriceSourceForm: View {
 
         guard option.isNumeric else { return }
 
-        source.responseKeyPath = selectedResponseKeyPath
+        draft.responseKeyPath = selectedResponseKeyPath
         isResponsePickerPresented = false
+    }
+
+    private func applyChanges() {
+        source = draft
+    }
+
+    private func restoreChanges() {
+        draft = source
+        resetResponsePickerState()
+    }
+
+    private func cancelResponseFetch() {
+        responseFetchTask?.cancel()
+        responseFetchID = UUID()
+        resetResponsePickerState()
+    }
+
+    private func closeResponsePicker() {
+        responseFetchTask?.cancel()
+        responseFetchID = UUID()
+        isResponsePickerPresented = false
+    }
+
+    private func resetResponsePickerState() {
+        responseFetchTask = nil
+        isResponsePickerPresented = false
+        isFetchingResponse = false
+        responseFetchFailed = false
+        responseOptions = []
+        selectedResponseKeyPath = nil
+    }
+}
+
+private struct RestoreButtonStyle: ButtonStyle {
+    let isActive: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(isActive ? .orange : Color.secondary.opacity(0.6))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isActive ? Color.orange.opacity(configuration.isPressed ? 0.22 : 0.12) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isActive ? Color.orange.opacity(0.55) : Color.clear)
+            )
     }
 }
 
@@ -192,6 +282,7 @@ private struct ResponseKeyPathPickerSheet: View {
     let options: [ResponseValueOption]
     @Binding var selectedKeyPath: String?
     let onSelect: () -> Void
+    let onCancel: () -> Void
     let onClose: () -> Void
 
     private var selectedOption: ResponseValueOption? {
@@ -212,6 +303,11 @@ private struct ResponseKeyPathPickerSheet: View {
                         .foregroundColor(.secondary)
                 }
                 .frame(width: 520, height: 220)
+                HStack {
+                    Spacer()
+                    Button("Cancel", action: onCancel)
+                        .keyboardShortcut(.cancelAction)
+                }
             } else if fetchFailed {
                 Text("Failed to fetch data. Check the url agian.")
                     .foregroundColor(.secondary)
