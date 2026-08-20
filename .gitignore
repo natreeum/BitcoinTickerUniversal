@@ -24,7 +24,8 @@ xcuserdata/
 *.perspectivev3
 
 # Packaged applications and disk images
-dist/
+dist/*
+!dist/Bitcoin-Ticker-Universal.dmg
 *.dSYM
 *.dSYM.zip
 
