@@ -61,6 +61,11 @@ final class PriceSourceStore: ObservableObject {
         selectedSourceID = source.id
     }
 
+    func updateSource(_ source: PriceSource) {
+        guard let index = sources.firstIndex(where: { $0.id == source.id }) else { return }
+        sources[index] = source
+    }
+
     @discardableResult
     func addSource() -> UUID {
         let source = PriceSource(
@@ -83,6 +88,33 @@ final class PriceSourceStore: ObservableObject {
             sources = [.defaultSource]
             selectedSourceID = sources[0].id
         }
+    }
+
+    func deleteSource(id: UUID) {
+        guard id != selectedSourceID,
+              let index = sources.firstIndex(where: { $0.id == id }) else { return }
+        sources.remove(at: index)
+
+        if sources.isEmpty {
+            sources = [.defaultSource]
+            selectedSourceID = sources[0].id
+        }
+    }
+
+    func moveSourceUp(id sourceID: UUID) {
+        guard let index = sources.firstIndex(where: { $0.id == sourceID }),
+              index > sources.startIndex else { return }
+        var updatedSources = sources
+        updatedSources.swapAt(index, updatedSources.index(before: index))
+        sources = updatedSources
+    }
+
+    func moveSourceDown(id sourceID: UUID) {
+        guard let index = sources.firstIndex(where: { $0.id == sourceID }),
+              index < sources.index(before: sources.endIndex) else { return }
+        var updatedSources = sources
+        updatedSources.swapAt(index, updatedSources.index(after: index))
+        sources = updatedSources
     }
 
     private func persist() {

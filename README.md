@@ -52,7 +52,7 @@ This command bypasses Gatekeeper's warning/blocking behavior for this app. This 
 
 ```sh
 shasum -a 256 dist/Bitcoin-Ticker-Universal.dmg
-88e32a245238dbc23764c125a19f233d6019229706bee82699b1eed74c54bf75  dist/Bitcoin-Ticker-Universal.dmg
+bee3bd8cbcb695c1504b5b53b721b53d28ac46dfd5613da873bcd80d0643cf39  dist/Bitcoin-Ticker-Universal.dmg
 ```
 
 ## Features

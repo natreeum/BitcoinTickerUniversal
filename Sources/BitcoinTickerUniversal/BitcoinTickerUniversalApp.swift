@@ -82,18 +82,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         store.$sources
             .dropFirst()
-            .sink { [weak self] _ in self?.statusItem.menu = self?.makeMenu() }
+            .sink { [weak self] sources in
+                guard let self else { return }
+                statusItem.menu = makeMenu(
+                    sources: sources,
+                    selectedSourceID: store.selectedSourceID
+                )
+            }
             .store(in: &cancellables)
 
         ticker.restartPolling()
     }
 
-    private func makeMenu() -> NSMenu {
+    private func makeMenu(
+        sources: [PriceSource]? = nil,
+        selectedSourceID: UUID? = nil
+    ) -> NSMenu {
+        let sources = sources ?? store.sources
+        let selectedSourceID = selectedSourceID ?? store.selectedSourceID
         let menu = NSMenu()
 
         let sourceListItem = NSMenuItem(title: "Price Source List", action: nil, keyEquivalent: "")
         let sourceMenu = NSMenu()
-        for source in store.sources {
+        for source in sources {
             let item = NSMenuItem(
                 title: source.label,
                 action: #selector(selectSource(_:)),
@@ -101,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             item.target = self
             item.representedObject = source.id
-            item.state = source.id == store.selectedSourceID ? .on : .off
+            item.state = source.id == selectedSourceID ? .on : .off
             sourceMenu.addItem(item)
         }
         sourceListItem.submenu = sourceMenu
@@ -164,8 +175,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let controller = NSHostingController(rootView: SettingsView(store: store))
-            let window = NSWindow(contentViewController: controller)
+            let window = NSWindow()
+            let controller = NSHostingController(
+                rootView: SettingsView(store: store) { [weak window] in
+                    window?.close()
+                }
+            )
+            window.contentViewController = controller
             window.title = "Bitcoin Ticker Universal Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.setContentSize(NSSize(width: 760, height: 460))

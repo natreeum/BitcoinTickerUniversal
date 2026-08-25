@@ -2,14 +2,22 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: PriceSourceStore
+    let onClose: () -> Void
     @State private var selectedID: UUID?
 
     var body: some View {
         HSplitView {
             VStack(spacing: 0) {
                 List(selection: $selectedID) {
-                    ForEach(store.sources) { source in
-                        Text(source.label).tag(source.id)
+                    ForEach(Array(store.sources.enumerated()), id: \.element.id) { index, source in
+                        PriceSourceListRow(
+                            source: source,
+                            canMoveUp: index > store.sources.startIndex,
+                            canMoveDown: index < store.sources.index(before: store.sources.endIndex),
+                            moveUp: { moveSourceUp(source.id) },
+                            moveDown: { moveSourceDown(source.id) }
+                        )
+                            .tag(source.id)
                     }
                 }
                 HStack(spacing: 4) {
@@ -27,8 +35,11 @@ struct SettingsView: View {
             .frame(minWidth: 220, idealWidth: 240, maxWidth: 300)
 
             Group {
-                if let binding = selectedSourceBinding {
-                    PriceSourceForm(source: binding)
+                if let selectedSource {
+                    PriceSourceForm(
+                        source: selectedSource,
+                        onApply: store.updateSource
+                    )
                 } else {
                     Text("Select a Price Source")
                         .foregroundColor(.secondary)
@@ -38,13 +49,19 @@ struct SettingsView: View {
             .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 700, minHeight: 420)
+        .background(
+            Button(action: onClose) {
+                EmptyView()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .opacity(0)
+        )
         .onAppear { selectedID = store.selectedSourceID }
     }
 
-    private var selectedSourceBinding: Binding<PriceSource>? {
-        guard let selectedID,
-              let index = store.sources.firstIndex(where: { $0.id == selectedID }) else { return nil }
-        return $store.sources[index]
+    private var selectedSource: PriceSource? {
+        guard let selectedID else { return nil }
+        return store.sources.first(where: { $0.id == selectedID })
     }
 
     private func addSource() {
@@ -59,13 +76,51 @@ struct SettingsView: View {
             .filter { $0 != index }
             .min(by: { abs($0 - index) < abs($1 - index) })
             .map { store.sources[$0].id }
-        store.deleteSources(at: IndexSet(integer: index))
         self.selectedID = nextSelection
+        store.deleteSource(id: selectedID)
+    }
+
+    private func moveSourceUp(_ sourceID: UUID) {
+        store.moveSourceUp(id: sourceID)
+    }
+
+    private func moveSourceDown(_ sourceID: UUID) {
+        store.moveSourceDown(id: sourceID)
+    }
+}
+
+private struct PriceSourceListRow: View {
+    let source: PriceSource
+    let canMoveUp: Bool
+    let canMoveDown: Bool
+    let moveUp: () -> Void
+    let moveDown: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(source.label)
+                .lineLimit(1)
+            Spacer()
+            Button(action: moveUp) {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(BorderlessButtonStyle())
+            .disabled(!canMoveUp)
+            .help("Move up")
+            Button(action: moveDown) {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(BorderlessButtonStyle())
+            .disabled(!canMoveDown)
+            .help("Move down")
+        }
+        .contentShape(Rectangle())
     }
 }
 
 private struct PriceSourceForm: View {
-    @Binding var source: PriceSource
+    let source: PriceSource
+    let onApply: (PriceSource) -> Void
     @State private var draft: PriceSource
     @State private var isResponsePickerPresented = false
     @State private var isFetchingResponse = false
@@ -77,9 +132,10 @@ private struct PriceSourceForm: View {
 
     private let priceClient = PriceClient()
 
-    init(source: Binding<PriceSource>) {
-        _source = source
-        _draft = State(initialValue: source.wrappedValue)
+    init(source: PriceSource, onApply: @escaping (PriceSource) -> Void) {
+        self.source = source
+        self.onApply = onApply
+        _draft = State(initialValue: source)
     }
 
     var body: some View {
@@ -227,7 +283,7 @@ private struct PriceSourceForm: View {
     }
 
     private func applyChanges() {
-        source = draft
+        onApply(draft)
     }
 
     private func restoreChanges() {
