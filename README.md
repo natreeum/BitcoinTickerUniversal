@@ -110,8 +110,7 @@ result.list.0.lastPrice
 
 New sources default to 60000 ms. The minimum effective polling interval is 250 ms.
 
-<img width="872" height="604" alt="image" src="https://github.com/user-attachments/assets/5119f14e-b4ff-41d1-8595-192b36af614e" />
-
+<img width="872" height="604" alt="image" src="https://github.com/user-attachments/assets/3fecdd8d-9754-4854-93e7-516b2ae76922" />
 
 ## Launch at Login
 
