@@ -41,6 +41,20 @@ The selected public API price is displayed as a rounded integer. Request, HTTP, 
 > [!NOTE]
 > The local DMG uses an ad-hoc signature. On another Mac, Gatekeeper may require Finder → right-click the app → **Open**. Warning-free public distribution requires Developer ID signing and Apple notarization.
 
+If macOS refuses to open the app, you can bypass the local verification check with:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Bitcoin Ticker Universal.app"
+open "/Applications/Bitcoin Ticker Universal.app"
+```
+
+This command bypasses Gatekeeper's warning/blocking behavior for this app. This project does not include code intended to perform any security-threatening behavior. The SHA-256 hash of the distributed DMG is:
+
+```sh
+shasum -a 256 dist/Bitcoin-Ticker-Universal.dmg
+8a64c1307802f797b75ac6da4eeb8bdef3ec530f37c4b238bd1b2070fc399ba4  dist/Bitcoin-Ticker-Universal.dmg
+```
+
 ## Features
 
 | | Feature | Details |
