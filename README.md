@@ -74,15 +74,8 @@ Currency selection changes the displayed symbol only. It does not perform exchan
 
 Click the menu bar price to open:
 
-```text
-Price Source List
-─────────────────
-Launch at Login
-─────────────────
-Settings…
-─────────────────
-Quit App
-```
+<img width="370" height="178" alt="image" src="https://github.com/user-attachments/assets/b6b7d808-841c-4709-bb12-8be091999974" />
+
 
 The current price source changes only through **Price Source List**. Selecting an item in Settings changes the editor target without changing the active ticker source.
 
@@ -116,6 +109,9 @@ result.list.0.lastPrice
 ```
 
 New sources default to 60000 ms. The minimum effective polling interval is 250 ms.
+
+<img width="872" height="604" alt="image" src="https://github.com/user-attachments/assets/5119f14e-b4ff-41d1-8595-192b36af614e" />
+
 
 ## Launch at Login
 
