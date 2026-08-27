@@ -25,7 +25,7 @@ xcuserdata/
 
 # Packaged applications and disk images
 dist/*
-!dist/Bitcoin-Ticker-Universal.dmg
+!dist/Bitcoin-Ticker-Universal-*.dmg
 *.dSYM
 *.dSYM.zip
 

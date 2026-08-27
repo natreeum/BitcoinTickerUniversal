@@ -7,10 +7,12 @@
 
   [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white)](https://www.swift.org/)
   [![macOS 11+](https://img.shields.io/badge/macOS-11%2B-000000?logo=apple&logoColor=white)](https://support.apple.com/macos)
+  [![Version](https://img.shields.io/badge/version-0.1.0-0969da)](#build-from-source)
   [![Universal Binary](https://img.shields.io/badge/Universal-arm64%20%7C%20x86__64-4c8bf5)](#build-app-bundles)
   [![No Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](#requirements)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-  [Download](dist/Bitcoin-Ticker-Universal.dmg) · [Features](#features) · [Install](#install-from-dmg) · [Build](#build-from-source) · [Uninstall](#uninstall)
+  [Download](dist/Bitcoin-Ticker-Universal-0.1.0.dmg) · [Features](#features) · [Install](#install-from-dmg) · [Build](#build-from-source) · [Uninstall](#uninstall)
 </div>
 
 ---
@@ -33,7 +35,7 @@ The selected public API price is displayed as a rounded integer. Request, HTTP, 
 
 ## Install from DMG
 
-1. Download and open [`Bitcoin-Ticker-Universal.dmg`](dist/Bitcoin-Ticker-Universal.dmg).
+1. Download and open [`Bitcoin-Ticker-Universal-0.1.0.dmg`](dist/Bitcoin-Ticker-Universal-0.1.0.dmg).
 2. Drag **Bitcoin Ticker Universal.app** onto the included **Applications** shortcut.
 3. Launch the app from `/Applications`.
 4. Enable **Launch at Login** after the app is in its final location.
@@ -51,8 +53,8 @@ open "/Applications/Bitcoin Ticker Universal.app"
 This command bypasses Gatekeeper's warning/blocking behavior for this app. This project does not include code intended to perform any security-threatening behavior. The SHA-256 hash of the distributed DMG is:
 
 ```sh
-shasum -a 256 dist/Bitcoin-Ticker-Universal.dmg
-bee3bd8cbcb695c1504b5b53b721b53d28ac46dfd5613da873bcd80d0643cf39  dist/Bitcoin-Ticker-Universal.dmg
+shasum -a 256 dist/Bitcoin-Ticker-Universal-0.1.0.dmg
+d0cbe3ddfe3caec3f7837d86b627ff7661bd8f9f9eed860921b04179194215d2  dist/Bitcoin-Ticker-Universal-0.1.0.dmg
 ```
 
 ## Features
@@ -150,6 +152,7 @@ The uninstaller runs from the mounted DMG and installs no additional files.
 | Build toolchain | Xcode with Swift 6.2 |
 | Dependencies | None |
 | API keys | None |
+| License | MIT |
 
 ## Build from source
 
@@ -188,7 +191,7 @@ chmod +x scripts/package_dmg.sh
 Output:
 
 ```text
-dist/Bitcoin-Ticker-Universal.dmg
+dist/Bitcoin-Ticker-Universal-0.1.0.dmg
 ```
 
 The disk image contains:
@@ -221,6 +224,10 @@ The completed image is verified with `hdiutil verify`.
 
 - [Bitcoin Ticker Widget](https://apps.apple.com/us/app/bitcoin-ticker-widget/id998255317) — the simple menu bar experience that inspired this project
 - [Coinbase](https://docs.cdp.coinbase.com/coinbase-business/track-apis/prices), [Binance](https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market), and [Bybit](https://bybit-exchange.github.io/docs/v5/market/tickers) — public market data APIs
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
 
 ---
 

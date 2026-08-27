@@ -2,7 +2,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-dmg_path="$project_dir/dist/Bitcoin-Ticker-Universal.dmg"
+app_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$project_dir/Resources/Info.plist")
+dmg_path="$project_dir/dist/Bitcoin-Ticker-Universal-$app_version.dmg"
 dmg_stage_dir=$(mktemp -d /private/tmp/bitcoin-ticker-dmg.XXXXXX)
 
 case "$dmg_stage_dir" in
